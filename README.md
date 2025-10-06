@@ -1,2 +1,292 @@
-# My-Personal-Photos
-My private photos
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>My-Personal-Photos — My private photos</title>
+
+<!-- Simple modern CSS -->
+<style>
+  :root{
+    --bg:#0f1724;     /* dark background */
+    --card:#0b1220;
+    --muted:#9aa4b2;
+    --accent:#7dd3fc;
+    --white:#f8fafc;
+    --gap:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+    background:linear-gradient(180deg,var(--bg),#061024 120%);
+    color:var(--white);
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:32px;
+  }
+
+  /* Header */
+  header{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    margin-bottom:26px;
+  }
+  .logo{
+    width:64px;height:64px;border-radius:12px;
+    background:linear-gradient(135deg,var(--accent),#60a5fa);
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#012030;
+    font-size:20px;box-shadow:0 6px 20px rgba(7,12,20,.6);
+  }
+  .title{
+    line-height:1;
+  }
+  .title h1{margin:0;font-size:20px;letter-spacing:0.2px}
+  .title p{margin:4px 0 0;color:var(--muted);font-size:13px}
+
+  /* Controls row */
+  .controls{
+    margin-top:8px;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+  .btn{
+    background:transparent;color:var(--accent);border:1px solid rgba(125,211,252,.14);
+    padding:8px 12px;border-radius:10px;font-weight:600;font-size:13px;
+    cursor:pointer;backdrop-filter: blur(6px);
+  }
+
+  /* Gallery grid */
+  .grid{
+    display:grid;
+    gap:var(--gap);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    margin-top:20px;
+  }
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.08));
+    border-radius:12px;overflow:hidden;position:relative;
+    height:0;padding-bottom:75%; /* maintain aspect ratio */
+    box-shadow: 0 6px 18px rgba(2,6,23,.45);
+    cursor:pointer;transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .card:hover{transform:translateY(-6px);box-shadow:0 14px 36px rgba(2,6,23,.6)}
+  .card img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+    transition:transform .25s ease;
+  }
+  .caption{
+    position:absolute;left:8px;bottom:8px;padding:6px 8px;border-radius:8px;
+    background:linear-gradient(90deg, rgba(2,6,23,.6), rgba(2,6,23,.3));
+    color:var(--white);font-size:12px;backdrop-filter: blur(4px);
+  }
+
+  /* Lightbox modal */
+  .modal{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(0deg, rgba(2,6,23,0.82), rgba(2,6,23,0.92));
+    z-index:1000;padding:20px;opacity:0;pointer-events:none;transition:opacity .18s ease;
+  }
+  .modal.open{opacity:1;pointer-events:auto}
+  .modal-content{
+    max-width:1200px;width:100%;max-height:90vh;display:flex;flex-direction:column;gap:12px;
+  }
+  .modal img{width:100%;height:auto;border-radius:12px;box-shadow:0 20px 50px rgba(2,6,23,.6)}
+  .modal .meta{display:flex;justify-content:space-between;align-items:center;color:var(--muted)}
+  .close{
+    border:0;background:transparent;color:var(--muted);font-weight:700;font-size:18px;cursor:pointer;
+  }
+
+  /* small screens */
+  @media (max-width:420px){
+    body{padding:18px}
+    .logo{width:52px;height:52px;font-size:18px}
+    .card{padding-bottom:80%}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MP</div>
+  <div class="title">
+    <h1>My-Personal-Photos</h1>
+    <p>My private photos</p>
+
+    <div class="controls">
+      <button class="btn" id="openUpload">How to add photos</button>
+      <button class="btn" id="toggleTheme">Toggle theme</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Gallery grid will be filled by JS -->
+  <div id="gallery" class="grid" aria-live="polite"></div>
+</main>
+
+<!-- Modal / lightbox -->
+<div id="modal" class="modal" role="dialog" aria-hidden="true">
+  <div class="modal-content" role="document">
+    <div class="meta">
+      <div id="metaText">Filename</div>
+      <div>
+        <button class="close" id="prev" title="Previous (←)">&larr;</button>
+        <button class="close" id="next" title="Next (→)">&rarr;</button>
+        <button class="close" id="close" title="Close (Esc)">✕</button>
+      </div>
+    </div>
+    <img id="modalImg" src="" alt="Expanded photo" />
+  </div>
+</div>
+
+<!-- Javascript: populate gallery from an images/ folder -->
+<script>
+/*
+  How it works:
+  - Put your photos in the `images/` folder of the repo.
+  - The script below expects an array of filenames.
+  - You can manually add filenames to the `photos` array below OR
+    generate this list automatically when building your site.
+*/
+
+/* ==== EDIT THIS LIST: add your filenames from /images/ here ==== */
+const photos = [
+  // Example:
+  // "photo1.jpg",
+  // "family1.jpg",
+  // "trip_paris.jpg"
+];
+
+/* If you prefer the script to auto-detect images, you would need a server-side step.
+   For GitHub Pages, editing this array is the easiest approach. */
+
+const gallery = document.getElementById('gallery');
+
+function makeCaption(name){
+  // create a nice caption from filename
+  const noExt = name.replace(/\.[^/.]+$/, "");
+  return noExt.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function createCard(fname, idx){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.tabIndex = 0;
+  card.setAttribute('data-idx', idx);
+
+  const img = document.createElement('img');
+  img.loading = 'lazy';
+  img.alt = makeCaption(fname);
+  img.src = `images/${fname}`;
+
+  const cap = document.createElement('div');
+  cap.className = 'caption';
+  cap.textContent = makeCaption(fname);
+
+  card.appendChild(img);
+  card.appendChild(cap);
+
+  // open modal on click or Enter
+  card.addEventListener('click', () => openModal(idx));
+  card.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') openModal(idx);
+  });
+
+  return card;
+}
+
+/* populate grid */
+function render(){
+  if(photos.length === 0){
+    gallery.innerHTML = '<p style="color:var(--muted)">No photos listed yet. Edit <code>index.html</code> and add your image filenames to the <code>photos</code> array near the top.</p>';
+    return;
+  }
+  gallery.innerHTML = '';
+  photos.forEach((p, i) => {
+    gallery.appendChild(createCard(p, i));
+  });
+}
+
+/* Modal logic */
+const modal = document.getElementById('modal');
+const modalImg = document.getElementById('modalImg');
+const metaText = document.getElementById('metaText');
+let current = 0;
+
+function openModal(i){
+  current = i;
+  modalImg.src = `images/${photos[i]}`;
+  modalImg.alt = makeCaption(photos[i]);
+  metaText.textContent = photos[i];
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(){
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  modalImg.src = '';
+  document.body.style.overflow = '';
+}
+
+function prev(){
+  if(photos.length === 0) return;
+  current = (current - 1 + photos.length) % photos.length;
+  openModal(current);
+}
+function nextImg(){
+  if(photos.length === 0) return;
+  current = (current + 1) % photos.length;
+  openModal(current);
+}
+
+/* keyboard navigation */
+document.addEventListener('keydown', (e) => {
+  if(modal.classList.contains('open')){
+    if(e.key === 'Escape') closeModal();
+    if(e.key === 'ArrowLeft') prev();
+    if(e.key === 'ArrowRight') nextImg();
+  }
+});
+
+/* controls */
+document.getElementById('close').addEventListener('click', closeModal);
+document.getElementById('prev').addEventListener('click', prev);
+document.getElementById('next').addEventListener('click', nextImg);
+
+// close modal by clicking backdrop
+modal.addEventListener('click', (e) => {
+  if(e.target === modal) closeModal();
+});
+
+/* small helper: show instructions */
+document.getElementById('openUpload').addEventListener('click', () => {
+  alert("To add photos:\n1) Create a folder named 'images' in your repo.\n2) Upload your image files into that folder (e.g., images/photo1.jpg).\n3) Edit this index.html and add the filenames to the 'photos' array near the top.\n4) Commit and view the page. For a live site enable GitHub Pages in repo Settings.");
+});
+
+/* toggle theme (light/dark) — minimal */
+document.getElementById('toggleTheme').addEventListener('click', () => {
+  if(document.documentElement.style.getPropertyValue('--bg') === '#0f1724'){
+    document.documentElement.style.setProperty('--bg', '#f7f9fb');
+    document.documentElement.style.setProperty('--card', '#ffffff');
+    document.documentElement.style.setProperty('--muted', '#475569');
+    document.documentElement.style.setProperty('--accent', '#06b6d4');
+    document.documentElement.style.setProperty('--white', '#022433');
+    document.body.style.color = '#022433';
+  } else {
+    document.documentElement.style.setProperty('--bg', '#0f1724');
+    document.documentElement.style.setProperty('--card', '#0b1220');
+    document.documentElement.style.setProperty('--muted', '#9aa4b2');
+    document.documentElement.style.setProperty('--accent', '#7dd3fc');
+    document.documentElement.style.setProperty('--white', '#f8fafc');
+    document.body.style.color = '';
+  }
+});
+
+/* initialize grid */
+render();
+</script>
+</body>
+</html>
